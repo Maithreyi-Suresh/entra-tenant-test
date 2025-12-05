@@ -78,9 +78,7 @@
       }
     </style>
 
-    <!-- 1️⃣ MSAL.js from CDN (must be BEFORE your own script) -->
     <script src="https://alcdn.msauth.net/browser/2.44.0/js/msal-browser.min.js"></script>
-    <!-- 2️⃣ Tenant config (clientId, authority, redirectUri) -->
     <script src="config.js"></script>
   </head>
 
@@ -89,7 +87,7 @@
       <h1>Complete Your Registration</h1>
       <p class="small">
         Your First Name, Last Name, and Email ID have been auto-filled from your
-        Google/Microsoft account.
+        Microsoft Entra ID account.
       </p>
 
       <div id="error"></div>
@@ -132,41 +130,19 @@
       const emailInput = document.getElementById("email");
       const npiInput = document.getElementById("npi");
 
-      console.log("At runtime, typeof msal is:", typeof msal);
-
-      const settings = window.msalSettings || {};
-
       const msalConfig = {
         auth: {
-          clientId: settings.clientId,
-          authority: settings.authority,
-          knownAuthorities: settings.knownAuthorities || [],
-          redirectUri: settings.redirectUri,
+          clientId: window.msalSettings.auth.clientId,
+          authority: window.msalSettings.auth.authority,
+          redirectUri: window.msalSettings.auth.redirectUri,
+          knownAuthorities: window.msalSettings.auth.knownAuthorities,
         },
-        cache: {
-          cacheLocation: "sessionStorage",
-        },
+        cache: window.msalSettings.cache,
       };
 
-      let msalInstance;
-
-      try {
-        if (typeof msal === "undefined") {
-          throw new Error(
-            "MSAL global object is undefined. Script may not have loaded."
-          );
-        }
-
-        msalInstance = new msal.PublicClientApplication(msalConfig);
-      } catch (err) {
-        errorBox.textContent =
-          "MSAL is not available or configuration is invalid. Check the MSAL script tag and config.js.";
-        console.error("MSAL init error:", err);
-      }
+      const msalInstance = new msal.PublicClientApplication(msalConfig);
 
       async function init() {
-        if (!msalInstance) return;
-
         try {
           const response = await msalInstance.handleRedirectPromise();
 
@@ -181,17 +157,24 @@
 
           if (!account) {
             errorBox.textContent =
-              "No user information found. This page must be opened only after signup/login via the tenant.";
+              "No user information found. This page must be opened after signup/login.";
             return;
           }
 
-          emailInput.value = account.username || "";
+          const tokenResp = await msalInstance.acquireTokenSilent({
+            scopes: ["openid", "profile", "email"],
+            account,
+          });
 
-          if (account.name) {
-            const parts = account.name.split(" ");
-            firstNameInput.value = parts[0] || "";
-            lastNameInput.value = parts.slice(1).join(" ");
-          }
+          const claims = tokenResp.idTokenClaims || {};
+
+          firstNameInput.value = claims.given_name || "";
+          lastNameInput.value = claims.family_name || "";
+          emailInput.value =
+            claims.email ||
+            claims.preferred_username ||
+            (Array.isArray(claims.emails) ? claims.emails[0] : "");
+
         } catch (err) {
           console.error("MSAL error:", err);
           errorBox.textContent =
