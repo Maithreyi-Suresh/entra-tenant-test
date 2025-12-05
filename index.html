@@ -163,10 +163,12 @@
             const account = msalInstance.getActiveAccount();
 
             if (!account) {
-              errorBox.textContent =
-                "No user information found. This page must be opened after signup/login.";
-              return;
-            }
+             console.warn("No active account found. Redirecting to Microsoft login...");
+  await msalInstance.loginRedirect({
+    scopes: ["openid", "profile", "email"],
+  });
+  return;
+}
 
             const tokenResp = await msalInstance.acquireTokenSilent({
               scopes: ["openid", "profile", "email"],
@@ -212,5 +214,6 @@
     </script>
   </body>
 </html>
+
 
 
