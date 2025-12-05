@@ -134,7 +134,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       console.error("❌ MSAL is not loaded. Check script tag.");
       document.getElementById("error").textContent = "MSAL not loaded!";
       return;
-    }
+    });
       const msalConfig = {
         auth: {
           clientId: window.msalSettings.auth.clientId,
@@ -208,5 +208,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     </script>
   </body>
 </html>
+
 
 
