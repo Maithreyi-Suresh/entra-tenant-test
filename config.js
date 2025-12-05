@@ -10,16 +10,11 @@ window.msalSettings = {
     cacheLocation: "sessionStorage",
     storeAuthStateInCookie: false,
   },
+  request: {
+    scopes: ["openid", "profile", "email"]
+  }
 };
 
-const msalConfig = {
-  auth: {
-    clientId: window.msalSettings.clientId,
-    authority: window.msalSettings.authority,
-    redirectUri: window.msalSettings.redirectUri,
-    knownAuthorities: window.msalSettings.knownAuthorities,
-  },
-};
 
-const msalInstance = new msal.PublicClientApplication(msalConfig);
+
 
