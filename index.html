@@ -165,7 +165,7 @@
             scopes: ["openid", "profile", "email"],
             account,
           });
-
+          console.log("✅ ID Token Claims:", tokenResp.idTokenClaims);
           const claims = tokenResp.idTokenClaims || {};
 
           firstNameInput.value = claims.given_name || "";
@@ -203,3 +203,4 @@
     </script>
   </body>
 </html>
+
