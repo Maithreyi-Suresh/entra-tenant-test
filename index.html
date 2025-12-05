@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Dummy Registration Landing – Tenant Test</title>
+    <title>Tenant Registration Landing – MSAL Auto-Fill</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <style>
@@ -27,20 +27,20 @@
       }
       h1 {
         font-size: 1.25rem;
-        margin: 0 0 8px;
+        margin-bottom: 8px;
         color: #111827;
       }
-      p {
-        font-size: 0.875rem;
-        color: #4b5563;
-        margin: 0 0 16px;
-      }
-      .small {
-        font-size: 0.75rem;
+      p.small {
+        font-size: 0.8rem;
+        margin-bottom: 16px;
         color: #6b7280;
       }
+      #error {
+        color: #b91c1c;
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+      }
       form {
-        margin-top: 12px;
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -48,8 +48,6 @@
       label {
         font-size: 0.8rem;
         color: #374151;
-        margin-bottom: 4px;
-        display: block;
       }
       .required::after {
         content: " *";
@@ -64,7 +62,6 @@
       }
       input[readonly] {
         background: #f3f4f6;
-        cursor: not-allowed;
       }
       button {
         border: none;
@@ -79,163 +76,139 @@
       button:hover {
         background: #1d4ed8;
       }
-      #error {
-        color: #b91c1c;
-        font-size: 0.8rem;
-        margin-bottom: 8px;
-      }
     </style>
+
+    <!-- MSAL.js -->
+    <script src="https://alcdn.msauth.net/browser/2.44.0/js/msal-browser.min.js"></script>
+    <!-- Tenant settings -->
+    <script src="config.js"></script>
   </head>
+
   <body>
     <div class="card">
-      <h1>Dummy Registration Landing</h1>
+      <h1>Complete Your Registration</h1>
       <p class="small">
-        This page is only for testing. If your name and email appear below, your
-        tenant’s sign-up + Google/Microsoft verification + redirect are working.
+        Your First Name, Last Name, and Email ID have been auto-filled from your
+        Google/Microsoft account.
       </p>
 
       <div id="error"></div>
 
-      <form id="userForm">
-        <div class="field">
+      <form id="registrationForm">
+        <div>
           <label class="required">First Name</label>
-          <input type="text" id="firstName" required />
+          <input id="firstName" required />
         </div>
 
-        <div class="field">
+        <div>
           <label>Middle Name</label>
-          <input type="text" id="middleName" />
+          <input id="middleName" />
         </div>
 
-        <div class="field">
+        <div>
           <label class="required">Last Name</label>
-          <input type="text" id="lastName" required />
+          <input id="lastName" required />
         </div>
 
-        <div class="field">
-          <label class="required">Email (from Google/Microsoft)</label>
-          <input type="email" id="email" readonly />
+        <div>
+          <label class="required">Email (from Entra)</label>
+          <input id="email" type="email" readonly />
         </div>
 
-        <div class="field">
+        <div>
           <label class="required">NPI Number</label>
-          <input type="text" id="npi" required />
+          <input id="npi" required />
         </div>
 
-        <button type="submit">Submit & Confirm Tenant Works</button>
+        <button type="submit">Submit</button>
       </form>
     </div>
 
     <script>
-      const errorDiv = document.getElementById("error");
+      const errorBox = document.getElementById("error");
       const firstNameInput = document.getElementById("firstName");
       const middleNameInput = document.getElementById("middleName");
       const lastNameInput = document.getElementById("lastName");
       const emailInput = document.getElementById("email");
       const npiInput = document.getElementById("npi");
-      const form = document.getElementById("userForm");
 
-      function showError(msg) {
-        errorDiv.textContent = msg || "";
+      const settings = window.msalSettings || {};
+
+      const msalConfig = {
+        auth: {
+          clientId: settings.clientId,
+          authority: settings.authority,
+          knownAuthorities: settings.knownAuthorities || [],
+          redirectUri: settings.redirectUri,
+        },
+        cache: {
+          cacheLocation: "sessionStorage",
+        },
+      };
+
+      let msalInstance;
+
+      try {
+        msalInstance = new msal.PublicClientApplication(msalConfig);
+      } catch (err) {
+        errorBox.textContent =
+          "Invalid MSAL configuration. Update config.js with tenant values.";
+        console.error(err);
       }
 
-      function parseHashFragment() {
-        // Expect something like: #id_token=....&state=...
-        const hash = window.location.hash.startsWith("#")
-          ? window.location.hash.substring(1)
-          : window.location.hash;
-
-        if (!hash) return {};
-
-        return hash.split("&").reduce((acc, part) => {
-          const [key, value] = part.split("=");
-          if (!key) return acc;
-          acc[decodeURIComponent(key)] = decodeURIComponent(value || "");
-          return acc;
-        }, {});
-      }
-
-      function decodeJwtPayload(token) {
-        // Basic JWT decode (no signature validation — OK for this test-only page)
-        const parts = token.split(".");
-        if (parts.length !== 3) {
-          throw new Error("Invalid ID token format");
-        }
-        const payload = parts[1];
-        // Replace URL-safe chars and pad base64
-        const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-        const padded =
-          base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-        const json = atob(padded);
-        return JSON.parse(json);
-      }
-
-      function populateFromTokenClaims(claims) {
-        // Try common OIDC/AAD claims
-        const givenName = claims.given_name || "";
-        const familyName = claims.family_name || "";
-        const fullName = claims.name || "";
-        let email =
-          claims.email ||
-          (Array.isArray(claims.emails) ? claims.emails[0] : "") ||
-          claims.preferred_username ||
-          "";
-
-        if (!email && claims.upn) {
-          email = claims.upn;
-        }
-
-        if (givenName || familyName) {
-          firstNameInput.value = givenName;
-          lastNameInput.value = familyName;
-        } else if (fullName) {
-          const parts = fullName.split(" ");
-          firstNameInput.value = parts[0] || "";
-          lastNameInput.value = parts.slice(1).join(" ");
-        }
-
-        emailInput.value = email;
-      }
-
-      function init() {
+      async function init() {
         try {
-          const params = parseHashFragment();
+          const response = await msalInstance.handleRedirectPromise();
 
-          if (!params.id_token) {
-            showError(
-              "No ID token found in the URL. " +
-                "Please make sure the tenant is configured to redirect here " +
-                "AFTER successful sign-up/verification with an id_token."
-            );
+          if (response?.account) {
+            msalInstance.setActiveAccount(response.account);
+          } else {
+            const accounts = msalInstance.getAllAccounts();
+            if (accounts.length > 0) msalInstance.setActiveAccount(accounts[0]);
+          }
+
+          const account = msalInstance.getActiveAccount();
+
+          if (!account) {
+            errorBox.textContent =
+              "No user information found. This page must be opened only after signup/login via the tenant.";
             return;
           }
 
-          const claims = decodeJwtPayload(params.id_token);
-          populateFromTokenClaims(claims);
-        } catch (e) {
-          console.error(e);
-          showError(
-            "Failed to read user info from the ID token. Check the browser console for details."
-          );
+          // Email
+          emailInput.value = account.username || "";
+
+          // Name
+          if (account.name) {
+            const parts = account.name.split(" ");
+            firstNameInput.value = parts[0] || "";
+            lastNameInput.value = parts.slice(1).join(" ");
+          }
+        } catch (err) {
+          console.error("MSAL error:", err);
+          errorBox.textContent =
+            "Unable to load user details. Check redirect URI and tenant configuration.";
         }
       }
 
       init();
 
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const payload = {
-          firstName: firstNameInput.value,
-          middleName: middleNameInput.value,
-          lastName: lastNameInput.value,
-          email: emailInput.value,
-          npi: npiInput.value,
-        };
-        console.log("Dummy registration submitted:", payload);
-        alert(
-          "Form submitted!\nIf name and email were auto-filled, your tenant flow is working."
-        );
-      });
+      document
+        .getElementById("registrationForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const payload = {
+            firstName: firstNameInput.value,
+            middleName: middleNameInput.value,
+            lastName: lastNameInput.value,
+            email: emailInput.value,
+            npi: npiInput.value,
+          };
+
+          console.log("Registration submitted:", payload);
+          alert("Registration complete! (Dummy test page)");
+        });
     </script>
   </body>
 </html>
