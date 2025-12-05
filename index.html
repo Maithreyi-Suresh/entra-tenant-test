@@ -129,7 +129,12 @@
       const lastNameInput = document.getElementById("lastName");
       const emailInput = document.getElementById("email");
       const npiInput = document.getElementById("npi");
-
+window.addEventListener("DOMContentLoaded", async () => {
+    if (typeof msal === "undefined") {
+      console.error("❌ MSAL is not loaded. Check script tag.");
+      document.getElementById("error").textContent = "MSAL not loaded!";
+      return;
+    }
       const msalConfig = {
         auth: {
           clientId: window.msalSettings.auth.clientId,
@@ -203,4 +208,5 @@
     </script>
   </body>
 </html>
+
 
