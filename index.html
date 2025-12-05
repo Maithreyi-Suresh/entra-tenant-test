@@ -78,9 +78,9 @@
       }
     </style>
 
-    <!-- MSAL.js -->
+    <!-- 1️⃣ MSAL.js from CDN (must be BEFORE your own script) -->
     <script src="https://alcdn.msauth.net/browser/2.44.0/js/msal-browser.min.js"></script>
-    <!-- Tenant settings -->
+    <!-- 2️⃣ Tenant config (clientId, authority, redirectUri) -->
     <script src="config.js"></script>
   </head>
 
@@ -132,6 +132,8 @@
       const emailInput = document.getElementById("email");
       const npiInput = document.getElementById("npi");
 
+      console.log("At runtime, typeof msal is:", typeof msal);
+
       const settings = window.msalSettings || {};
 
       const msalConfig = {
@@ -149,14 +151,22 @@
       let msalInstance;
 
       try {
+        if (typeof msal === "undefined") {
+          throw new Error(
+            "MSAL global object is undefined. Script may not have loaded."
+          );
+        }
+
         msalInstance = new msal.PublicClientApplication(msalConfig);
       } catch (err) {
         errorBox.textContent =
-          "Invalid MSAL configuration. Update config.js with tenant values.";
-        console.error(err);
+          "MSAL is not available or configuration is invalid. Check the MSAL script tag and config.js.";
+        console.error("MSAL init error:", err);
       }
 
       async function init() {
+        if (!msalInstance) return;
+
         try {
           const response = await msalInstance.handleRedirectPromise();
 
@@ -175,10 +185,8 @@
             return;
           }
 
-          // Email
           emailInput.value = account.username || "";
 
-          // Name
           if (account.name) {
             const parts = account.name.split(" ");
             firstNameInput.value = parts[0] || "";
