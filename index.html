@@ -129,86 +129,86 @@
       const lastNameInput = document.getElementById("lastName");
       const emailInput = document.getElementById("email");
       const npiInput = document.getElementById("npi");
-window.addEventListener("DOMContentLoaded", async () => {
-    if (typeof msal === "undefined") {
-      console.error("❌ MSAL is not loaded. Check script tag.");
-      document.getElementById("error").textContent = "MSAL not loaded!";
-      return;
-    })
-      const msalConfig = {
-        auth: {
-          clientId: window.msalSettings.auth.clientId,
-          authority: window.msalSettings.auth.authority,
-          redirectUri: window.msalSettings.auth.redirectUri,
-          knownAuthorities: window.msalSettings.auth.knownAuthorities,
-        },
-        cache: window.msalSettings.cache,
-      };
 
-      const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-      async function init() {
-        try {
-          const response = await msalInstance.handleRedirectPromise();
-
-          if (response?.account) {
-            msalInstance.setActiveAccount(response.account);
-          } else {
-            const accounts = msalInstance.getAllAccounts();
-            if (accounts.length > 0) msalInstance.setActiveAccount(accounts[0]);
-          }
-
-          const account = msalInstance.getActiveAccount();
-
-          if (!account) {
-            errorBox.textContent =
-              "No user information found. This page must be opened after signup/login.";
-            return;
-          }
-
-          const tokenResp = await msalInstance.acquireTokenSilent({
-            scopes: ["openid", "profile", "email"],
-            account,
-          });
-          console.log("✅ ID Token Claims:", tokenResp.idTokenClaims);
-          const claims = tokenResp.idTokenClaims || {};
-
-          firstNameInput.value = claims.given_name || "";
-          lastNameInput.value = claims.family_name || "";
-          emailInput.value =
-            claims.email ||
-            claims.preferred_username ||
-            (Array.isArray(claims.emails) ? claims.emails[0] : "");
-
-        } catch (err) {
-          console.error("MSAL error:", err);
-          errorBox.textContent =
-            "Unable to load user details. Check redirect URI and tenant configuration.";
+      window.addEventListener("DOMContentLoaded", async () => {
+        if (typeof msal === "undefined") {
+          console.error("❌ MSAL is not loaded. Check script tag.");
+          document.getElementById("error").textContent = "MSAL not loaded!";
+          return;
         }
-      }
 
-      init();
+        const msalConfig = {
+          auth: {
+            clientId: window.msalSettings.auth.clientId,
+            authority: window.msalSettings.auth.authority,
+            redirectUri: window.msalSettings.auth.redirectUri,
+            knownAuthorities: window.msalSettings.auth.knownAuthorities,
+          },
+          cache: window.msalSettings.cache,
+        };
 
-      document
-        .getElementById("registrationForm")
-        .addEventListener("submit", function (e) {
-          e.preventDefault();
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-          const payload = {
-            firstName: firstNameInput.value,
-            middleName: middleNameInput.value,
-            lastName: lastNameInput.value,
-            email: emailInput.value,
-            npi: npiInput.value,
-          };
+        async function init() {
+          try {
+            const response = await msalInstance.handleRedirectPromise();
 
-          console.log("Registration submitted:", payload);
-          alert("Registration complete! (Dummy test page)");
-        });
+            if (response?.account) {
+              msalInstance.setActiveAccount(response.account);
+            } else {
+              const accounts = msalInstance.getAllAccounts();
+              if (accounts.length > 0) msalInstance.setActiveAccount(accounts[0]);
+            }
+
+            const account = msalInstance.getActiveAccount();
+
+            if (!account) {
+              errorBox.textContent =
+                "No user information found. This page must be opened after signup/login.";
+              return;
+            }
+
+            const tokenResp = await msalInstance.acquireTokenSilent({
+              scopes: ["openid", "profile", "email"],
+              account,
+            });
+
+            console.log("✅ ID Token Claims:", tokenResp.idTokenClaims);
+            const claims = tokenResp.idTokenClaims || {};
+
+            firstNameInput.value = claims.given_name || "";
+            lastNameInput.value = claims.family_name || "";
+            emailInput.value =
+              claims.email ||
+              claims.preferred_username ||
+              (Array.isArray(claims.emails) ? claims.emails[0] : "");
+
+          } catch (err) {
+            console.error("MSAL error:", err);
+            errorBox.textContent =
+              "Unable to load user details. Check redirect URI and tenant configuration.";
+          }
+        }
+
+        await init();
+
+        document
+          .getElementById("registrationForm")
+          .addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const payload = {
+              firstName: firstNameInput.value,
+              middleName: middleNameInput.value,
+              lastName: lastNameInput.value,
+              email: emailInput.value,
+              npi: npiInput.value,
+            };
+
+            console.log("Registration submitted:", payload);
+            alert("Registration complete! (Dummy test page)");
+          });
+      }); // ✅ Fixed: Closed DOMContentLoaded listener
     </script>
   </body>
 </html>
-
-
-
-
