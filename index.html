@@ -1,219 +1,95 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Tenant Registration Landing – MSAL Auto-Fill</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+  <meta charset="UTF-8" />
+  <title>Tenant Registration</title>
+  <script src="msal-browser.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <h2>Tenant Registration Form</h2>
+  <div id="error" style="color: red;"></div>
 
-    <style>
-      body {
-        margin: 0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        background: #f3f4f6;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .card {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 24px;
-        max-width: 480px;
-        width: 100%;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-        border: 1px solid #e5e7eb;
-      }
-      h1 {
-        font-size: 1.25rem;
-        margin-bottom: 8px;
-        color: #111827;
-      }
-      p.small {
-        font-size: 0.8rem;
-        margin-bottom: 16px;
-        color: #6b7280;
-      }
-      #error {
-        color: #b91c1c;
-        font-size: 0.8rem;
-        margin-bottom: 10px;
-      }
-      form {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      label {
-        font-size: 0.8rem;
-        color: #374151;
-      }
-      .required::after {
-        content: " *";
-        color: #ef4444;
-      }
-      input {
-        width: 100%;
-        padding: 8px 10px;
-        border-radius: 8px;
-        border: 1px solid #d1d5db;
-        font-size: 0.9rem;
-      }
-      input[readonly] {
-        background: #f3f4f6;
-      }
-      button {
-        border: none;
-        border-radius: 8px;
-        padding: 10px 16px;
-        background: #2563eb;
-        color: white;
-        font-weight: 600;
-        font-size: 0.9rem;
-        cursor: pointer;
-      }
-      button:hover {
-        background: #1d4ed8;
-      }
-    </style>
+  <form id="registrationForm">
+    <label>First Name: <input id="firstName" required /></label><br />
+    <label>Last Name: <input id="lastName" required /></label><br />
+    <label>Email: <input id="email" type="email" readonly /></label><br />
+    <label>NPI Number: <input id="npi" required /></label><br />
+    <button type="submit">Submit</button>
+  </form>
 
-    <script src="msal-browser.min.js"></script>
-    <script src="config.js"></script>
-  </head>
+  <script>
+    const errorBox = document.getElementById("error");
+    const firstNameInput = document.getElementById("firstName");
+    const lastNameInput = document.getElementById("lastName");
+    const emailInput = document.getElementById("email");
+    const npiInput = document.getElementById("npi");
 
-  <body>
-    <div class="card">
-      <h1>Complete Your Registration</h1>
-      <p class="small">
-        Your First Name, Last Name, and Email ID have been auto-filled from your
-        Microsoft Entra ID account.
-      </p>
+    window.addEventListener("DOMContentLoaded", async () => {
+      if (typeof msal === "undefined") {
+        errorBox.textContent = "MSAL not loaded!";
+        return;
+      }
 
-      <div id="error"></div>
+      const msalInstance = new msal.PublicClientApplication({
+        auth: {
+          clientId: window.msalSettings.auth.clientId,
+          authority: window.msalSettings.auth.authority,
+          redirectUri: window.msalSettings.auth.redirectUri,
+          knownAuthorities: window.msalSettings.auth.knownAuthorities,
+        },
+        cache: window.msalSettings.cache,
+      });
 
-      <form id="registrationForm">
-        <div>
-          <label class="required">First Name</label>
-          <input id="firstName" required />
-        </div>
+      try {
+        const response = await msalInstance.handleRedirectPromise();
 
-        <div>
-          <label>Middle Name</label>
-          <input id="middleName" />
-        </div>
+        if (response?.account) {
+          msalInstance.setActiveAccount(response.account);
+        } else {
+          const accounts = msalInstance.getAllAccounts();
+          if (accounts.length > 0) msalInstance.setActiveAccount(accounts[0]);
+        }
 
-        <div>
-          <label class="required">Last Name</label>
-          <input id="lastName" required />
-        </div>
+        const account = msalInstance.getActiveAccount();
 
-        <div>
-          <label class="required">Email (from Entra)</label>
-          <input id="email" type="email" readonly />
-        </div>
-
-        <div>
-          <label class="required">NPI Number</label>
-          <input id="npi" required />
-        </div>
-
-        <button type="submit">Submit</button>
-      </form>
-    </div>
-
-    <script>
-      const errorBox = document.getElementById("error");
-      const firstNameInput = document.getElementById("firstName");
-      const middleNameInput = document.getElementById("middleName");
-      const lastNameInput = document.getElementById("lastName");
-      const emailInput = document.getElementById("email");
-      const npiInput = document.getElementById("npi");
-
-      window.addEventListener("DOMContentLoaded", async () => {
-        if (typeof msal === "undefined") {
-          console.error("❌ MSAL is not loaded. Check script tag.");
-          document.getElementById("error").textContent = "MSAL not loaded!";
+        // ✅ Redirect to login if no active account
+        if (!account) {
+          await msalInstance.loginRedirect({
+            scopes: ["openid", "profile", "email"],
+          });
           return;
         }
 
-        const msalConfig = {
-          auth: {
-            clientId: window.msalSettings.auth.clientId,
-            authority: window.msalSettings.auth.authority,
-            redirectUri: window.msalSettings.auth.redirectUri,
-            knownAuthorities: window.msalSettings.auth.knownAuthorities,
-          },
-          cache: window.msalSettings.cache,
+        const tokenResp = await msalInstance.acquireTokenSilent({
+          scopes: ["openid", "profile", "email"],
+          account,
+        });
+
+        const claims = tokenResp.idTokenClaims || {};
+        firstNameInput.value = claims.given_name || "";
+        lastNameInput.value = claims.family_name || "";
+        emailInput.value = claims.email || claims.preferred_username || "";
+
+      } catch (err) {
+        console.error("MSAL error:", err);
+        errorBox.textContent = "Unable to load user details. Check config and tenant setup.";
+      }
+
+      document.getElementById("registrationForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const payload = {
+          firstName: firstNameInput.value,
+          lastName: lastNameInput.value,
+          email: emailInput.value,
+          npi: npiInput.value,
         };
 
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-        async function init() {
-          try {
-            const response = await msalInstance.handleRedirectPromise();
-
-            if (response?.account) {
-              msalInstance.setActiveAccount(response.account);
-            } else {
-              const accounts = msalInstance.getAllAccounts();
-              if (accounts.length > 0) msalInstance.setActiveAccount(accounts[0]);
-            }
-
-            const account = msalInstance.getActiveAccount();
-
-            if (!account) {
-             console.warn("No active account found. Redirecting to Microsoft login...");
-  await msalInstance.loginRedirect({
-    scopes: ["openid", "profile", "email"],
-  });
-  return;
-}
-
-            const tokenResp = await msalInstance.acquireTokenSilent({
-              scopes: ["openid", "profile", "email"],
-              account,
-            });
-
-            console.log("✅ ID Token Claims:", tokenResp.idTokenClaims);
-            const claims = tokenResp.idTokenClaims || {};
-
-            firstNameInput.value = claims.given_name || "";
-            lastNameInput.value = claims.family_name || "";
-            emailInput.value =
-              claims.email ||
-              claims.preferred_username ||
-              (Array.isArray(claims.emails) ? claims.emails[0] : "");
-
-          } catch (err) {
-            console.error("MSAL error:", err);
-            errorBox.textContent =
-              "Unable to load user details. Check redirect URI and tenant configuration.";
-          }
-        }
-
-        await init();
-
-        document
-          .getElementById("registrationForm")
-          .addEventListener("submit", function (e) {
-            e.preventDefault();
-
-            const payload = {
-              firstName: firstNameInput.value,
-              middleName: middleNameInput.value,
-              lastName: lastNameInput.value,
-              email: emailInput.value,
-              npi: npiInput.value,
-            };
-
-            console.log("Registration submitted:", payload);
-            alert("Registration complete! (Dummy test page)");
-          });
-      }); // ✅ Fixed: Closed DOMContentLoaded listener
-    </script>
-  </body>
+        console.log("✅ Registration Submitted:", payload);
+        alert("Form submitted!");
+      });
+    });
+  </script>
+</body>
 </html>
-
-
-
