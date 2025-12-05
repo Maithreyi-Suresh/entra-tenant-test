@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Tenant Registration</title>
-  <script src="msal-browser.min.js"></script>
+ <script src="https://alcdn.msauth.net/browser/2.28.1/js/msal-browser.min.js"></script>
   <script src="config.js"></script>
 </head>
 <body>
@@ -51,7 +51,7 @@
           if (accounts.length > 0) msalInstance.setActiveAccount(accounts[0]);
         }
 
-        const account = msalInstance.getAllAccounts();
+        const account = msalInstance.getActiveAccount();
 
         // ✅ Redirect to login if no active account
         if (!account) {
@@ -93,4 +93,5 @@
   </script>
 </body>
 </html>
+
 
