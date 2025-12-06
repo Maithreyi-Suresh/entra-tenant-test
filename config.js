@@ -14,12 +14,8 @@ window.msalSettings = {
     scopes: ["openid", "profile", "email"]
   }
   
-  "globalHeaders": {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
-  }
-
 };
+
 
 
 
